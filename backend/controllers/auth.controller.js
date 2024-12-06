@@ -1,214 +1,171 @@
 import bcryptjs from "bcryptjs";
-import crypto from "crypto";
-
-import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-import {
-	sendPasswordResetEmail,
-	sendResetSuccessEmail,
-	sendVerificationEmail,
-	sendWelcomeEmail,
-} from "../mailtrap/emails.js";
+import * as faceapi from "face-api.js";
 import { User } from "../models/user.model.js";
+import jwt from "jsonwebtoken";
+import path from 'path';
 
+// Flag to check if models are already loaded
+let modelsLoaded = false;
+
+// Function to load FaceAPI models
+export const loadFaceApiModels = async (req, res) => {
+  if (modelsLoaded) {
+    console.log("Models already loaded, skipping...");
+    return res.status(200).json({ message: "Models already loaded." });
+  }
+
+  try {
+    const MODEL_URL = path.resolve(process.cwd(), "backend", "models_recog");
+    console.log("Loading FaceAPI models from:", MODEL_URL);
+
+    await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.loadFromDisk(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.loadFromDisk(MODEL_URL);
+
+    modelsLoaded = true;
+    console.log("FaceAPI models loaded successfully.");
+    return res.status(200).json({ message: "FaceAPI models loaded successfully." });
+  } catch (error) {
+    console.error("Error loading FaceAPI models:", error);
+    return res.status(500).json({ error: "Failed to load FaceAPI models." });
+  }
+};
+
+// Backend: Assuming descriptor is sent as an array (not a Float32Array)
+export const validateFaceDescriptor = (req, res, next) => {
+  let { faceDescriptor } = req.body;
+
+  if (!faceDescriptor) {
+    return res.status(400).json({
+      error: "Face descriptor is missing in the request body.",
+    });
+  }
+
+  let parsedFaceDescriptor;
+  if (typeof faceDescriptor === "string") {
+    try {
+      parsedFaceDescriptor = JSON.parse(faceDescriptor);
+    } catch (err) {
+      return res.status(400).json({
+        error: "Face descriptor must be valid JSON.",
+      });
+    }
+  } else {
+    parsedFaceDescriptor = faceDescriptor;
+  }
+
+  if (
+    !Array.isArray(parsedFaceDescriptor) ||
+    parsedFaceDescriptor.length !== 128 ||
+    parsedFaceDescriptor.some(
+      (num) => typeof num !== "number" || num < -1 || num > 1
+    )
+  ) {
+    return res.status(400).json({
+      error: "Face descriptor must be an array of 128 numbers between -1 and 1.",
+      received: parsedFaceDescriptor,
+    });
+  }
+
+  req.body.faceDescriptor = parsedFaceDescriptor;
+  next();
+};
+
+// Signup function
 export const signup = async (req, res) => {
-	const { email, password, name, image } = req.body;
-  
+  try {
+    const { rollNumber, name, faceDescriptor } = req.body;
+
+    if (!rollNumber || !name || !faceDescriptor) {
+      return res.status(400).json({
+        error: "Please provide roll number, name, and face descriptor.",
+      });
+    }
+
+    const existingUser = await User.findOne({ rollNumber });
+    if (existingUser) {
+      return res.status(400).json({ error: "Roll number already exists." });
+    }
+
+    const newUser = new User({
+      rollNumber,
+      name,
+      faceDescriptor,
+    });
+
+    await newUser.save();
+    return res.status(201).json({ message: "User registered successfully." });
+  } catch (error) {
+    console.error("Error during signup:", error);
+    return res.status(500).json({ error: "Signup failed. Please try again later." });
+  }
+};
+
+// Login function
+export const login = async (req, res) => {
 	try {
-	  if (!email || !password || !name || !image) {
-		throw new Error("All fields, including an image, are required");
-	  }
+	  const { rollNumber, faceDescriptor } = req.body;
   
-	  // Check if the user already exists
-	  const userAlreadyExists = await User.findOne({ email });
-	  console.log("userAlreadyExists", userAlreadyExists);
-  
-	  if (userAlreadyExists) {
+	  if (!rollNumber || !faceDescriptor) {
 		return res.status(400).json({
-		  success: false,
-		  message: "User already exists",
+		  error: "Please provide roll number and face descriptor.",
 		});
 	  }
   
-	  // Hash the password
-	  const hashedPassword = await bcryptjs.hash(password, 10);
-	  const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+	  const user = await User.findOne({ rollNumber });
+	  if (!user) {
+		return res.status(404).json({ error: "User not found." });
+	  }
   
-	  // Convert the base64 image to a Buffer
-	  const imageBuffer = Buffer.from(image.split(",")[1], "base64");
+	  // Ensure the 'name' field exists on the user object
+	  if (!user.name) {
+		return res.status(500).json({ error: "User name is missing." });
+	  }
   
-	  // Create a new user
-	  const user = new User({
-		email,
-		password: hashedPassword,
-		name,
-		isVerified: true, // Automatically verified for simplicity
-		image: imageBuffer, // Store the user's image
-	  });
+	  const storedDescriptor = user.faceDescriptor;
+	  const distance = faceapi.euclideanDistance(faceDescriptor, storedDescriptor);
   
-	  await user.save();
+	  if (distance > 0.6) {
+		return res.status(401).json({ error: "Face recognition failed." });
+	  }
   
-	  // Generate JWT and set cookie
-	  generateTokenAndSetCookie(res, user._id);
+	  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
   
-	  res.status(201).json({
-		success: true,
-		message: "User created successfully",
-		user: {
-		  ...user._doc,
-		  password: undefined, // Exclude password from the response
-		},
+	  return res.status(200).json({
+		message: "Login successful.",
+		token,
+		user: { name: user.name, rollNumber: user.rollNumber }, // Send user data to frontend
 	  });
 	} catch (error) {
-	  res.status(400).json({
-		success: false,
-		message: error.message,
-	  });
+	  console.error("Login error:", error);
+	  return res.status(500).json({ error: "Login failed. Please try again later." });
 	}
   };
   
-
-export const verifyEmail = async (req, res) => {
-	const { code } = req.body;
-	try {
-		const user = await User.findOne({
-			verificationToken: code,
-			verificationTokenExpiresAt: { $gt: Date.now() },
-		});
-
-		if (!user) {
-			return res.status(400).json({ success: false, message: "Invalid or expired verification code" });
-		}
-
-		user.isVerified = true;
-		user.verificationToken = undefined;
-		user.verificationTokenExpiresAt = undefined;
-		await user.save();
-
-		await sendWelcomeEmail(user.email, user.name);
-
-		res.status(200).json({
-			success: true,
-			message: "Email verified successfully",
-			user: {
-				...user._doc,
-				password: undefined,
-			},
-		});
-	} catch (error) {
-		console.log("error in verifyEmail ", error);
-		res.status(500).json({ success: false, message: "Server error" });
-	}
+  
+// Logout function
+export const logout = (req, res) => {
+  try {
+    res.clearCookie("auth_token");
+    return res.status(200).json({ success: true, message: "Logged out successfully." });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Logout failed." });
+  }
 };
 
-export const login = async (req, res) => {
-	const { email, password } = req.body;
-	try {
-		const user = await User.findOne({ email });
-		if (!user) {
-			return res.status(400).json({ success: false, message: "Invalid credentials" });
-		}
-		const isPasswordValid = await bcryptjs.compare(password, user.password);
-		if (!isPasswordValid) {
-			return res.status(400).json({ success: false, message: "Invalid credentials" });
-		}
-
-		generateTokenAndSetCookie(res, user._id);
-
-		user.lastLogin = new Date();
-		await user.save();
-
-		res.status(200).json({
-			success: true,
-			message: "Logged in successfully",
-			user: {
-				...user._doc,
-				password: undefined,
-			},
-		});
-	} catch (error) {
-		console.log("Error in login ", error);
-		res.status(400).json({ success: false, message: error.message });
-	}
-};
-
-export const logout = async (req, res) => {
-	res.clearCookie("token");
-	res.status(200).json({ success: true, message: "Logged out successfully" });
-};
-
-export const forgotPassword = async (req, res) => {
-	const { email } = req.body;
-	try {
-		const user = await User.findOne({ email });
-
-		if (!user) {
-			return res.status(400).json({ success: false, message: "User not found" });
-		}
-
-		// Generate reset token
-		const resetToken = crypto.randomBytes(20).toString("hex");
-		const resetTokenExpiresAt = Date.now() + 1 * 60 * 60 * 1000; // 1 hour
-
-		user.resetPasswordToken = resetToken;
-		user.resetPasswordExpiresAt = resetTokenExpiresAt;
-
-		await user.save();
-
-		// send email
-		await sendPasswordResetEmail(user.email, `${process.env.CLIENT_URL}/reset-password/${resetToken}`);
-
-		res.status(200).json({ success: true, message: "Password reset link sent to your email" });
-	} catch (error) {
-		console.log("Error in forgotPassword ", error);
-		res.status(400).json({ success: false, message: error.message });
-	}
-};
-
-export const resetPassword = async (req, res) => {
-	try {
-		const { token } = req.params;
-		const { password } = req.body;
-
-		const user = await User.findOne({
-			resetPasswordToken: token,
-			resetPasswordExpiresAt: { $gt: Date.now() },
-		});
-
-		if (!user) {
-			return res.status(400).json({ success: false, message: "Invalid or expired reset token" });
-		}
-
-		// update password
-		const hashedPassword = await bcryptjs.hash(password, 10);
-
-		user.password = hashedPassword;
-		user.resetPasswordToken = undefined;
-		user.resetPasswordExpiresAt = undefined;
-		await user.save();
-
-		await sendResetSuccessEmail(user.email);
-
-		res.status(200).json({ success: true, message: "Password reset successful" });
-	} catch (error) {
-		console.log("Error in resetPassword ", error);
-		res.status(400).json({ success: false, message: error.message });
-	}
-};
-
-export const checkAuth = async (req, res) => {
-    try {
-        const user = await User.findById(req.userId).select("-password");
-
-        if (!user) {
-            return res.status(400).json({ success: false, message: "User not found" });
-        }
-
-        
-        res.status(200).json({ success: true, user });
-    } catch (error) {
-        console.log("Error in checkAuth ", error);
-        res.status(400).json({ success: false, message: error.message });
+// Authorization check
+export const checkAuth = (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ success: false, message: "Unauthorized." });
     }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    return res.status(200).json({ success: true, userId: decoded.userId });
+  } catch (error) {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
 };
-
-

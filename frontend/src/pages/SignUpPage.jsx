@@ -1,122 +1,152 @@
 import { motion } from "framer-motion";
 import Input from "../components/Input";
 import Webcam from "react-webcam";
-import { Loader, Lock, Mail, User } from "lucide-react";
-import { useState, useRef } from "react";
+import { User, Clipboard } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
-import { useAuthStore } from "../store/authStore";
+import axios from "axios";
+import * as faceapi from "face-api.js";
 
 const SignUpPage = () => {
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [rollNumber, setRollNumber] = useState("");
   const [image, setImage] = useState(null);
+  const [faceDescriptor, setFaceDescriptor] = useState(null);
+  const [formError, setFormError] = useState(null);
+  const [imageError, setImageError] = useState(null);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
   const webcamRef = useRef(null);
   const navigate = useNavigate();
 
-  const { signup, error, isLoading } = useAuthStore();
+  // Load FaceAPI models
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = "/models"; // Adjust based on your public folder path
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        setIsModelLoaded(true);
+      } catch (err) {
+        alert("Failed to load face recognition models.");
+      }
+    };
+    loadModels();
+  }, []);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     const imageSrc = webcamRef.current.getScreenshot();
-    setImage(imageSrc); // Store the captured image
+    if (!imageSrc) {
+      setImageError("No image captured. Please try again.");
+      return;
+    }
+
+    const img = document.createElement("img");
+    img.src = imageSrc;
+
+    img.onload = async () => {
+      const detection = await faceapi
+        .detectSingleFace(img)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!detection || !detection.descriptor) {
+        setImageError("No face detected. Ensure your face is visible.");
+        return;
+      }
+
+      // Only set the faceDescriptor if detection is successful
+      setFaceDescriptor(Array.from(detection.descriptor)); // Convert Float32Array to a plain array
+      setImage(imageSrc);
+      setImageError(null); // Clear any previous error
+    };
   };
 
-  const handleSignUp = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
 
+    // Ensure all required fields are filled
+    if (!name.trim() || !rollNumber.trim()) {
+      setFormError("Please fill in all fields.");
+      return;
+    }
+
+    // Ensure face descriptor is captured
+    if (!faceDescriptor) {
+      setFormError("Face descriptor is missing. Please capture a face image.");
+      return;
+    }
+
+    const payload = {
+      name,
+      rollNumber,
+      faceDescriptor, // Send the descriptor array
+    };
+
     try {
-      // Pass the image along with user details to signup
-      await signup(email, password, name, image);
-      navigate("/");
+      // Sending POST request to backend
+      const response = await axios.post("http://localhost:5000/api/auth/signup", payload, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.status === 201) {
+        navigate("/login"); // Redirect to login on successful signup
+      }
     } catch (error) {
-      console.log(error);
+      setFormError(error.response?.data?.error || "Signup failed.");
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="max-w-md w-full bg-gray-800 bg-opacity-50 backdrop-filter backdrop-blur-xl rounded-2xl shadow-xl 
-      overflow-hidden"
-    >
-      <div className="p-8">
-        <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-emerald-500 text-transparent bg-clip-text">
-          Create Account
-        </h2>
-
-        <form onSubmit={handleSignUp}>
-          <Input
-            icon={User}
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+    <motion.div className="max-w-md bg-gray-800 p-8 rounded-lg shadow-lg">
+      <h2 className="text-3xl font-bold mb-6 text-center text-green-400">Create Account</h2>
+      <form onSubmit={handleSignup}>
+        <Input
+          icon={User}
+          type="text"
+          placeholder="Full Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <Input
+          icon={Clipboard}
+          type="text"
+          placeholder="Roll Number"
+          value={rollNumber}
+          onChange={(e) => setRollNumber(e.target.value)}
+        />
+        <div className="mt-4">
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            screenshotFormat="image/jpeg"
+            className="rounded-lg"
           />
-          <Input
-            icon={Mail}
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <Input
-            icon={Lock}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          {error && <p className="text-red-500 font-semibold mt-2">{error}</p>}
-          <PasswordStrengthMeter password={password} />
-
-          {/* Webcam Section */}
-          <div className="mt-4">
-            <Webcam
-              audio={false}
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              className="w-full rounded-lg"
-            />
-            <button
-              type="button"
-              className="mt-2 w-full py-2 px-4 bg-gray-700 text-white rounded-lg"
-              onClick={handleCapture}
-            >
-              Capture Image
-            </button>
-          </div>
-          {image && <img src={image} alt="Captured" className="mt-4 rounded-lg" />}
-
-          <motion.button
-            className="mt-5 w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white 
-            font-bold rounded-lg shadow-lg hover:from-green-600
-            hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
-             focus:ring-offset-gray-900 transition duration-200"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            disabled={isLoading}
+          <button
+            type="button"
+            onClick={handleCapture}
+            className="mt-2 w-full bg-gray-700 py-2 text-white rounded-lg"
+            disabled={!isModelLoaded} // Disable button until model is loaded
           >
-            {isLoading ? (
-              <Loader className="animate-spin mx-auto" size={24} />
-            ) : (
-              "Sign Up"
-            )}
-          </motion.button>
-        </form>
-      </div>
-      <div className="px-8 py-4 bg-gray-900 bg-opacity-50 flex justify-center">
-        <p className="text-sm text-gray-400">
-          Already have an account?{" "}
-          <Link to={"/login"} className="text-green-400 hover:underline">
-            Login
-          </Link>
+            Capture Image
+          </button>
+          {imageError && <p className="text-red-500 mt-2">{imageError}</p>}
+        </div>
+        {image && <img src={image} alt="Captured" className="mt-4 rounded-lg" />}
+        {formError && <p className="text-red-500 mt-2">{formError}</p>}
+        <motion.button
+          className="mt-5 w-full bg-green-500 py-3 text-white rounded-lg shadow-lg"
+          type="submit"
+          disabled={!isModelLoaded}
+        >
+          Sign Up
+        </motion.button>
+        <p className="text-center mt-4 text-sm text-gray-400">
+          Already have an account? <Link to="/login" className="text-green-400">Login</Link>
         </p>
-      </div>
+      </form>
     </motion.div>
   );
 };
+
 export default SignUpPage;
