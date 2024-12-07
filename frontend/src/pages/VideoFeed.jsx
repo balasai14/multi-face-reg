@@ -1,10 +1,10 @@
-import React from 'react';
+
 
 const VideoFeed = () => {
     return (
         <div>
-            <h1>People Detection</h1>
-            <img src="http://localhost:5001/video_feed" alt="Video Feed" />
+            <h1>Crowd Couting</h1>
+            <img src="http://localhost:5001/crowd_counting" alt="Video Feed" />
         </div>
     );
 };

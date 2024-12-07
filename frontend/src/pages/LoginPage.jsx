@@ -1,11 +1,12 @@
+/* eslint-disable no-unused-vars */
 import { motion } from "framer-motion";
 import Input from "../components/Input";
 import Webcam from "react-webcam";
 import { Clipboard } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 import * as faceapi from "face-api.js";
+import { useAuthStore } from "../store/authStore";
 
 const LoginPage = () => {
   const [rollNumber, setRollNumber] = useState("");
@@ -74,41 +75,36 @@ const LoginPage = () => {
   };
 
   const handleLogin = async (e) => {
-	e.preventDefault();
+    e.preventDefault();
   
-	if (!rollNumber.trim()) {
-	  setError("Please enter your roll number.");
-	  return;
-	}
+    setError(null);
   
-	if (!image) {
-	  setError("No face image captured. Please capture an image.");
-	  return;
-	}
+    if (!rollNumber.trim()) {
+      setError('Please enter your roll number.');
+      return;
+    }
   
-	try {
-	  const faceDescriptor = await extractFaceDescriptor(image);
-	  // Sending roll number and face descriptor to the backend for validation
-	  const response = await axios.post("/api/auth/login", {
-		rollNumber,
-		faceDescriptor: Array.from(faceDescriptor), // Convert to array
-	  });
+    if (!image) {
+      setError('No face image captured. Please capture an image.');
+      return;
+    }
   
-	  if (response.status === 200) {
-		const user = response.data.user; // Ensure this is correctly returned from the backend
-		if (user && user.name) {
-		  alert(`Attendance marked for Roll Number: ${rollNumber}`);
-		  navigate("/dashboard");
-		} else {
-		  setError("User name is missing in response.");
-		}
-	  } else {
-		setError("Face does not match or user not found.");
-	  }
-	} catch (err) {
-	  setError(err.response?.data?.message || err || "Login failed.");
-	}
+    try {
+      const faceDescriptor = await extractFaceDescriptor(image);
+      const { success, message } = await useAuthStore.getState().login(rollNumber, Array.from(faceDescriptor));
+  
+      if (success) {
+        alert(`Welcome back, ${rollNumber}!`);
+        navigate('/'); // Redirect to dashboard
+      } else {
+        setError(message);
+      }
+    } catch (err) {
+      setError('Failed to process login. Please try again.');
+    }
   };
+  
+  
   
   
 
