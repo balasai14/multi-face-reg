@@ -1,26 +1,75 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const FaceRecognition = () => {
+    const [trainingName, setTrainingName] = useState("");
     const [trainingImage, setTrainingImage] = useState(null);
     const [testImage, setTestImage] = useState(null);
     const [prediction, setPrediction] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [isCameraActive, setIsCameraActive] = useState(false); // To toggle camera
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
 
-    const handleTrainingUpload = (event) => {
-        setTrainingImage(event.target.files[0]);
+    // Start or stop the camera stream
+    const toggleCamera = async () => {
+        if (isCameraActive) {
+            const stream = videoRef.current.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoRef.current.srcObject = stream;
+                videoRef.current.play();
+            } catch (error) {
+                alert("Error accessing the camera. Please check your device settings.");
+            }
+        }
+        setIsCameraActive(prevState => !prevState); // Toggle camera state
     };
 
-    const handleTestUpload = (event) => {
-        setTestImage(event.target.files[0]);
+    // Capture an image from the video feed and freeze the video
+    const captureImage = (setImageCallback) => {
+        if (videoRef.current && canvasRef.current) {
+            const canvas = canvasRef.current;
+            const video = videoRef.current;
+            const context = canvas.getContext("2d");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                setImageCallback(blob);
+            }, "image/jpeg");
+
+            // Freeze the video feed by pausing it
+            video.pause();
+        }
     };
 
-    const trainModel = async () => {
+    // Resume the camera feed after capturing an image
+    const resumeCamera = () => {
+        if (isCameraActive && videoRef.current) {
+            videoRef.current.play();
+        }
+    };
+
+    // Train the model
+    const handleTrain = async () => {
+        if (!trainingName.trim()) {
+            alert("Please enter a name for training.");
+            return;
+        }
         if (!trainingImage) {
-            alert("Please upload a training image first.");
+            alert("Please capture a training image first.");
             return;
         }
 
+        setIsLoading(true);
+
         const formData = new FormData();
         formData.append("image", trainingImage);
+        formData.append("name", trainingName);
 
         try {
             const response = await fetch("http://localhost:5001/train", {
@@ -28,76 +77,125 @@ const FaceRecognition = () => {
                 body: formData,
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                alert("Model trained successfully.");
+                alert("Model trained successfully!");
             } else {
-                alert("Training failed. Please try again.");
+                alert(`Training failed: ${data.error}`);
             }
         } catch (error) {
-            console.error("Error training the model:", error);
-            alert("An error occurred during training.");
+            alert("Error training model. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
-    const testModel = async () => {
+    // Predict the label after training
+    const handlePredict = async () => {
         if (!testImage) {
-            alert("Please upload a test image first.");
+            alert("Please capture a test image first.");
             return;
         }
+
+        setIsLoading(true);
 
         const formData = new FormData();
         formData.append("image", testImage);
 
         try {
-            const response = await fetch("http://localhost:5001/test", {
+            const response = await fetch("http://localhost:5001/predict", {
                 method: "POST",
                 body: formData,
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                const data = await response.json();
-                setPrediction(data.prediction || "Unknown");
+                setPrediction(data.prediction);
             } else {
-                alert("Testing failed. Please try again.");
+                alert(`Prediction failed: ${data.error}`);
             }
         } catch (error) {
-            console.error("Error testing the model:", error);
-            alert("An error occurred during testing.");
+            alert("Error predicting. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
         <div className="p-4 bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700">
-            <h3 className="text-xl font-semibold text-blue-400 mb-4">Face Recognition</h3>
+            <h3 className="text-xl font-semibold text-blue-400 mb-3">Face Recognition</h3>
 
-            <div className="mb-4">
-                <label className="block text-gray-300 mb-2">Upload Training Image:</label>
-                <input type="file" onChange={handleTrainingUpload} className="text-gray-300" />
-                <button
-                    onClick={trainModel}
-                    className="mt-2 py-2 px-4 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
-                >
-                    Train Model
-                </button>
-            </div>
-
-            <div className="mb-4">
-                <label className="block text-gray-300 mb-2">Upload Test Image:</label>
-                <input type="file" onChange={handleTestUpload} className="text-gray-300" />
-                <button
-                    onClick={testModel}
-                    className="mt-2 py-2 px-4 bg-green-500 text-white rounded-lg shadow hover:bg-green-600"
-                >
-                    Test Model
-                </button>
-            </div>
-
-            {prediction && (
-                <div className="mt-4 p-4 bg-gray-700 rounded-lg text-gray-300">
-                    <p className="font-bold">Prediction:</p>
-                    <p>{prediction}</p>
+            <div className="space-y-4">
+                {/* Start/Stop Camera */}
+                <div className="flex flex-col items-center">
+                    <video
+                        ref={videoRef}
+                        className="rounded border border-gray-700"
+                        autoPlay
+                        muted
+                        style={{ width: "100%", maxHeight: "300px" }}
+                    />
+                    <canvas ref={canvasRef} style={{ display: "none" }} />
+                    <button
+                        onClick={toggleCamera}
+                        className="mt-2 py-2 px-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-lg shadow-lg hover:from-purple-600 hover:to-purple-700"
+                    >
+                        {isCameraActive ? "Stop Camera" : "Start Camera"}
+                    </button>
                 </div>
-            )}
+
+                {/* Training Section */}
+                <div>
+                    <label className="block text-gray-300 mb-2">Enter Name for Training:</label>
+                    <input
+                        type="text"
+                        value={trainingName}
+                        onChange={(e) => setTrainingName(e.target.value)}
+                        className="w-full bg-gray-700 text-gray-300 p-2 rounded mb-2"
+                        placeholder="Enter name"
+                    />
+                    <button
+                        onClick={() => {
+                            captureImage(setTrainingImage);
+                            resumeCamera(); // Resume the camera after capturing
+                        }}
+                        className="py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
+                    >
+                        Capture Training Image
+                    </button>
+                </div>
+
+                <button
+                    onClick={handleTrain}
+                    className="w-full py-2 px-4 mt-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
+                >
+                    {isLoading ? "Training..." : "Train Model"}
+                </button>
+
+                {/* Prediction Section */}
+                <div>
+                    <button
+                        onClick={() => {
+                            captureImage(setTestImage);
+                            resumeCamera();
+                        }}
+                        className="py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
+                    >
+                        Capture Test Image
+                    </button>
+
+                    <button
+                        onClick={handlePredict}
+                        className="w-full py-2 px-4 mt-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
+                    >
+                        {isLoading ? "Predicting..." : "Predict Identity"}
+                    </button>
+
+                    {prediction && <div className="mt-2 text-white">Predicted Identity: {prediction}</div>}
+                </div>
+            </div>
         </div>
     );
 };
