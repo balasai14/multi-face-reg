@@ -1,10 +1,8 @@
-
-
-const VideoFeed = () => {
+const VideoFeed = ({ title, src }) => {
     return (
         <div>
-            <h1>Crowd Couting</h1>
-            <img src="http://localhost:5001/crowd_counting" alt="Video Feed" />
+            <h1>{title}</h1>
+            <img src={src} alt={`${title} Video Feed`} />
         </div>
     );
 };

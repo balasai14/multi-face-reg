@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useAuthStore } from "../store/authStore";
 import { formatDate } from "../utils/date";
 import VideoFeed from "./VideoFeed";
-import FaceRecognition from "./FaceRecognition";
+
 import { useState } from "react";
 const DashboardPage = () => {
     const { user, logout } = useAuthStore();
@@ -94,7 +94,7 @@ const DashboardPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.8 }}
                     >
-                        <VideoFeed />
+                       <VideoFeed title="Crowd Counting" src="http://localhost:5001/crowd_counting" />
                     </motion.div>
                 )}
 
@@ -125,7 +125,7 @@ const DashboardPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.8 }}
                     >
-                        <FaceRecognition />
+                        <VideoFeed title="Mutli face recognition" src="http://localhost:5001/multi" />
                     </motion.div>
                 )}
 
