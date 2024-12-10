@@ -7,6 +7,7 @@ const FaceRecognition = () => {
     const [prediction, setPrediction] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isCameraActive, setIsCameraActive] = useState(false); // To toggle camera
+    const [isImageCaptured, setIsImageCaptured] = useState(false); // To track image capture status
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
 
@@ -44,6 +45,7 @@ const FaceRecognition = () => {
 
             // Freeze the video feed by pausing it
             video.pause();
+            setIsImageCaptured(true); // Mark image as captured
         }
     };
 
@@ -147,7 +149,7 @@ const FaceRecognition = () => {
                 </div>
 
                 {/* Training Section */}
-                <div>
+                <div className="space-y-3">
                     <label className="block text-gray-300 mb-2">Enter Name for Training:</label>
                     <input
                         type="text"
@@ -156,42 +158,48 @@ const FaceRecognition = () => {
                         className="w-full bg-gray-700 text-gray-300 p-2 rounded mb-2"
                         placeholder="Enter name"
                     />
-                    <button
-                        onClick={() => {
-                            captureImage(setTrainingImage);
-                            resumeCamera(); // Resume the camera after capturing
-                        }}
-                        className="py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
-                    >
-                        Capture Training Image
-                    </button>
+                    <div className="flex justify-center space-x-4">
+                        <button
+                            onClick={() => {
+                                captureImage(setTrainingImage);
+                                resumeCamera(); // Resume the camera after capturing
+                            }}
+                            className="py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
+                            disabled={isImageCaptured} // Disable if image is captured
+                        >
+                            {isImageCaptured ? "Image Captured" : "Capture Training Image"}
+                        </button>
+
+                        <button
+                            onClick={handleTrain}
+                            className="py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
+                        >
+                            {isLoading ? "Training..." : "Train Model"}
+                        </button>
+                    </div>
                 </div>
 
-                <button
-                    onClick={handleTrain}
-                    className="w-full py-2 px-4 mt-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
-                >
-                    {isLoading ? "Training..." : "Train Model"}
-                </button>
-
                 {/* Prediction Section */}
-                <div>
-                    <button
-                        onClick={() => {
-                            captureImage(setTestImage);
-                            resumeCamera();
-                        }}
-                        className="py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
-                    >
-                        Capture Test Image
-                    </button>
+                <div className="space-y-3">
+                    <div className="flex justify-center space-x-4">
+                        <button
+                            onClick={() => {
+                                captureImage(setTestImage);
+                                resumeCamera();
+                            }}
+                            className="py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
+                            disabled={isImageCaptured} // Disable if image is captured
+                        >
+                            {isImageCaptured ? "Image Captured" : "Capture Test Image"}
+                        </button>
 
-                    <button
-                        onClick={handlePredict}
-                        className="w-full py-2 px-4 mt-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
-                    >
-                        {isLoading ? "Predicting..." : "Predict Identity"}
-                    </button>
+                        <button
+                            onClick={handlePredict}
+                            className="py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
+                        >
+                            {isLoading ? "Predicting..." : "Predict Identity"}
+                        </button>
+                    </div>
 
                     {prediction && <div className="mt-2 text-white">Predicted Identity: {prediction}</div>}
                 </div>

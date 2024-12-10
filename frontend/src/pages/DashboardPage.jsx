@@ -1,196 +1,109 @@
 import { motion } from "framer-motion";
-import { useAuthStore } from "../store/authStore";
-import { formatDate } from "../utils/date";
+import { useState } from "react";
 import VideoFeed from "./VideoFeed";
 import FaceRecognition from "./FaceRecognition";
-import { useState } from "react";
+import { useAuthStore } from "../store/authStore"; // Assuming you are using a store for user data
 
 const DashboardPage = () => {
-    const { user, logout } = useAuthStore();
-    const [showVideoFeed, setShowVideoFeed] = useState(false);
-    const [showFaceRecognition, setShowFaceRecognition] = useState(false);
-    const [showMultiFaceVideo, setShowMultiFaceVideo] = useState(false);
+  const { user, logout } = useAuthStore(); // Accessing user info from auth store
+  const [activeComponent, setActiveComponent] = useState(null);
 
-    const handleLogout = () => {
-        logout();
-    };
+  const handleLogout = () => {
+    logout();
+  };
 
-    const toggleVideoFeed = () => {
-        setShowVideoFeed(!showVideoFeed);
-    };
+  const handleClick = (component) => {
+    setActiveComponent(activeComponent === component ? null : component);
+  };
 
-    const toggleFaceRecognition = () => {
-        setShowFaceRecognition(!showFaceRecognition);
-    };
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen w-full flex flex-col items-center justify-start p-8 bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-xl shadow-2xl border border-gray-800"
+      style={{
+        backgroundImage: "url('/bg.jpg')", // Ensure the correct path to your image
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)', // Fallback background color
+      }}
+    >
+      {/* Header with centered VisionWave Logo */}
+      <div className="flex flex-col items-center mb-6 w-full">
+        <img
+          src="/logo.jpg" // Replace with your logo image path
+          alt="VisionWave Logo"
+          className="w-16 h-16 mb-4"
+        />
+        <div className="text-center text-white">
+          <p className="font-bold text-2xl">{user.name}</p>
+          <p className="text-sm text-gray-300">{`Roll Number: ${user.rollNumber}`}</p>
+        </div>
+      </div>
 
-    const toggleMultiFaceVideo = () => {
-        setShowMultiFaceVideo(!showMultiFaceVideo);
-    };
+      <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-blue-400 to-purple-600 text-transparent bg-clip-text">
+        Dashboard
+      </h2>
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-md w-full mx-auto mt-10 p-8 bg-gray-900 bg-opacity-80 backdrop-filter backdrop-blur-lg rounded-xl shadow-2xl border border-gray-800"
+      {/* Icons for selecting different functionalities */}
+      <div className="flex justify-center space-x-8 mb-8">
+        {/* Single Face Recognition */}
+        <motion.img
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          src="/single.jpg" // Replace with your image path
+          alt="Single Face Recognition"
+          onClick={() => handleClick("single")}
+          className="w-32 h-32 cursor-pointer rounded-lg shadow-lg"
+        />
+
+        {/* Multi-Face Recognition */}
+        <motion.img
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          src="/multi.jpg" // Replace with your image path
+          alt="Multi-Face Recognition"
+          onClick={() => handleClick("multi")}
+          className="w-32 h-32 cursor-pointer rounded-lg shadow-lg"
+        />
+
+        {/* Crowd Counting */}
+        <motion.img
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          src="/crowd.jpg" // Replace with your image path
+          alt="Crowd Counting"
+          onClick={() => handleClick("crowd")}
+          className="w-32 h-32 cursor-pointer rounded-lg shadow-lg"
+        />
+      </div>
+
+      {/* Conditional rendering of the selected component */}
+      <div className="mt-8 w-full">
+        {activeComponent === "single" && <FaceRecognition />}
+        {activeComponent === "multi" && (
+          <VideoFeed title="Multi-Face Recognition" src="http://localhost:5001/multi" />
+        )}
+        {activeComponent === "crowd" && (
+          <VideoFeed title="Crowd Counting" src="http://localhost:5001/crowd_counting" />
+        )}
+      </div>
+
+      {/* Logout Button */}
+      <div className="mt-8 w-full flex justify-center">
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleLogout}
+          className="py-3 px-6 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
         >
-            <h2 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-green-400 to-emerald-600 text-transparent bg-clip-text">
-                Dashboard
-            </h2>
-
-            <div className="space-y-6">
-                {/* Profile Section */}
-                <motion.div
-                    className="p-4 bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                >
-                    <h3 className="text-xl font-semibold text-green-400 mb-3">
-                        Profile Information
-                    </h3>
-                    <p className="text-gray-300">Name: {user.name}</p>
-                    <p className="text-gray-300">Email: {user.email}</p>
-                </motion.div>
-
-                {/* Account Activity Section */}
-                <motion.div
-                    className="p-4 bg-gray-800 bg-opacity-50 rounded-lg border border-gray-700"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    <h3 className="text-xl font-semibold text-green-400 mb-3">
-                        Account Activity
-                    </h3>
-                    <p className="text-gray-300">
-                        <span className="font-bold">Joined: </span>
-                        {new Date(user.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                        })}
-                    </p>
-                    <p className="text-gray-300">
-                        <span className="font-bold">Last Login: </span>
-                        {formatDate(user.lastLogin)}
-                    </p>
-                </motion.div>
-
-                {/* Crowd Counting Video Feed */}
-                <motion.div
-                    className="mt-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={toggleVideoFeed}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white 
-                            font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700
-                            focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                    >
-                        {showVideoFeed ? "Hide Crowd Counting" : "Show Crowd Counting"}
-                    </motion.button>
-                </motion.div>
-
-                {showVideoFeed && (
-                    <motion.div
-                        className="mt-6"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8 }}
-                    >
-                        <VideoFeed title="Crowd Counting" src="http://localhost:5001/crowd_counting" />
-                    </motion.div>
-                )}
-
-                {/* Multi-Face Video Feed */}
-                <motion.div
-                    className="mt-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={toggleMultiFaceVideo}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white 
-                            font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                    >
-                        {showMultiFaceVideo
-                            ? "Hide Multi-Face Recognition"
-                            : "Show Multi-Face Recognition"}
-                    </motion.button>
-                </motion.div>
-
-                {showMultiFaceVideo && (
-                    <motion.div
-                        className="mt-6"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8 }}
-                    >
-                        <VideoFeed title="Multi-Face Recognition" src="http://localhost:5001/multi" />
-                    </motion.div>
-                )}
-
-                {/* Face Recognition Section */}
-                <motion.div
-                    className="mt-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={toggleFaceRecognition}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white 
-                            font-bold rounded-lg shadow-lg hover:from-purple-600 hover:to-purple-700
-                            focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                    >
-                        {showFaceRecognition ? "Hide Face Recognition" : "Show Face Recognition"}
-                    </motion.button>
-                </motion.div>
-
-                {showFaceRecognition && (
-                    <motion.div
-                        className="mt-6"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8 }}
-                    >
-                        <FaceRecognition />
-                    </motion.div>
-                )}
-
-                {/* Logout Button */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="mt-4"
-                >
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleLogout}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white 
-                            font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700
-                            focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900"
-                    >
-                        Logout
-                    </motion.button>
-                </motion.div>
-            </div>
-        </motion.div>
-    );
+          Logout
+        </motion.button>
+      </div>
+    </motion.div>
+  );
 };
 
 export default DashboardPage;
