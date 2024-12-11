@@ -90,6 +90,7 @@ const FaceRecognition = () => {
             alert("Error training model. Please try again.");
         } finally {
             setIsLoading(false);
+            setIsImageCaptured(false); // Reset image capture state after training
         }
     };
 
@@ -162,12 +163,11 @@ const FaceRecognition = () => {
                         <button
                             onClick={() => {
                                 captureImage(setTrainingImage);
-                                resumeCamera(); // Resume the camera after capturing
+                                resumeCamera();
                             }}
                             className="py-2 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-emerald-700"
-                            disabled={isImageCaptured} // Disable if image is captured
                         >
-                            {isImageCaptured ? "Image Captured" : "Capture Training Image"}
+                            {isImageCaptured ? "Retake Training Image" : "Capture Training Image"}
                         </button>
 
                         <button
@@ -188,9 +188,8 @@ const FaceRecognition = () => {
                                 resumeCamera();
                             }}
                             className="py-2 px-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-lg shadow-lg hover:from-blue-600 hover:to-blue-700"
-                            disabled={isImageCaptured} // Disable if image is captured
                         >
-                            {isImageCaptured ? "Image Captured" : "Capture Test Image"}
+                            {isImageCaptured ? "Retake Test Image" : "Capture Test Image"}
                         </button>
 
                         <button

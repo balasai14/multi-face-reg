@@ -45,7 +45,7 @@ def initialize_model():
             MaxPooling2D((2, 2)),
             Flatten(),
             Dense(128, activation="relu"),
-            Dense(len(labels), activation="softmax")  # Output layer based on the number of labels
+            Dense(len(labels), activation="softmax")  
         ])
         model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 

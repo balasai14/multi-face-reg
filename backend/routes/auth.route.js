@@ -21,4 +21,4 @@ router.post("/login", login);
 app.use(router);
 
 // Export the router as the default export
-export default app;  // This makes 'auth.route.js' the default export
+export default app;  

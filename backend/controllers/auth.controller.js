@@ -1,4 +1,4 @@
-import bcryptjs from "bcryptjs";
+
 import * as faceapi from "face-api.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
@@ -31,7 +31,6 @@ export const loadFaceApiModels = async (req, res) => {
   }
 };
 
-// Backend: Assuming descriptor is sent as an array (not a Float32Array)
 export const validateFaceDescriptor = (req, res, next) => {
   let { faceDescriptor } = req.body;
 
@@ -141,9 +140,7 @@ export const login = async (req, res) => {
 	  console.error("Login error:", error);
 	  return res.status(500).json({ error: "Login failed. Please try again later." });
 	}
-  };
-  
-  
+};
 // Logout function
 export const logout = (req, res) => {
   try {

@@ -53,41 +53,13 @@ function App() {
 
 	return (
 		<div>
-			
 			<Toaster />
 			<Routes>
-				<Route
-					path='/'
-					element={
-						<ProtectedRoute>
-							<DashboardPage />
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path='/signup'
-					element={
-						<RedirectAuthenticatedUser>
-							<SignUpPage />
-						</RedirectAuthenticatedUser>
-					}
-				/>
-				<Route
-					path='/login'
-					element={
-						<RedirectAuthenticatedUser>
-							<LoginPage />
-						</RedirectAuthenticatedUser>
-					}
-				/>
-				
-				
-
-				
-				{/* catch all routes */}
-				<Route path='*' element={<Navigate to='/' replace />} />
+				<Route path='/'element={<ProtectedRoute><DashboardPage /></ProtectedRoute>}/>
+				<Route path='/signup' element={<RedirectAuthenticatedUser><SignUpPage /></RedirectAuthenticatedUser>}/>
+				<Route path='/login'element={<RedirectAuthenticatedUser><LoginPage /></RedirectAuthenticatedUser>}/>
+				<Route path='*' element={<Navigate to='/login' replace />} />
 			</Routes>
-			
 		</div>
 	);
 }

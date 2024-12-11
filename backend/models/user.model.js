@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
 	  required: true,
     },
   },
-  { timestamps: true } // Automatically add createdAt and updatedAt fields
+  { timestamps: true }
 );
 
 const User = mongoose.model("User", userSchema);
