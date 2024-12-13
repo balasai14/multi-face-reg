@@ -54,7 +54,7 @@ recognizer.save("backend\\stage 2\\best_model.yml")
 print("Face recognition model trained and saved as 'best_model.yml'.")
 
 # ---- YOLO Model Setup for Crowd Counting ----
-model = YOLO('yolov8s.pt')  # Ensure you have the yolov8s.pt model file
+model = YOLO('yolo11s.pt')  # Ensure you have the yolov8s.pt model file
 
 # ---- Open Webcam for Both Functionalities ----
 cap = cv2.VideoCapture(0)

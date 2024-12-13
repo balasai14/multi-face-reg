@@ -26,7 +26,7 @@ def detect_and_crop_faces(img):
 
 # Prompt for label name and set the main directory where you want to save the images
 label_name = input("Enter the name for the folder label: ")
-output_folder = "C:/Users/Prashanthj/Desktop/Face Recog/stage 2/output_folder"  # Change this to your existing directory path
+output_folder = "C:/Users/Sai/Desktop/project-facreg/backend/stage 2/output_folderr"  # Change this to your existing directory path
 
 # Ensure the main directory exists
 if not os.path.exists(output_folder):
